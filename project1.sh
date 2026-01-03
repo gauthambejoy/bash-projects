@@ -1,98 +1,96 @@
-#! /bin/bash
+#!/bin/bash
 
-while true
-do
-    echo "NOTES CLI"
-    echo "1. Create a new note"
-    echo "2. Search for a note"
-    echo "3. Edit note"
-    echo "4. Delete note"
-    echo "5. exit"
-    echo -n "Enter your choice:"
-    read choice
+set -euo pipefail
+NOTES_DIR="notes"
+EDITOR="${EDITOR:-nano}"
 
-    create_note() {
-        notes_dir="notes"
+#creates or checks whether the directory already exists or not
+ensure_dir() {
+    mkdir -p "$NOTES_DIR"
+}
 
-        if [ ! -d "$notes_dir" ]
-        then
-            mkdir "$notes_dir"
-        fi
+next_note_number() {
+    local lastnumber
+    lastnumber=$(
+        find "$NOTES_DIR" -maxdepth 1 -name 'note*.txt' \
+        | sed -E 's/.*note([0-9]+)\.txt/\1/' \
+        | sort -n \
+        | tail -n 1
+    )
 
-        last_file=$(ls "$notes_dir"/note*.txt 2>/dev/null | sort -V | tail -n 1)
-        
-
-        if [ -z "$last_file" ]
-        then
-            next_num=1
-        else
-            base_name=${last_file##*/}
-            base_name=${base_name%.*}
-            num=${base_name#note}
-            next_num=$(( num + 1 ))
-        fi
-
-        new_file="$notes_dir/note${next_num}.txt"
-        nano "$new_file"
-    }
-
-    search_note() {
-        echo -n "Enter the keyword to search:"
-        read keyword
-
-        grep -ni "$keyword" notes/note*.txt 2>/dev/null
-
-        if [ $? -ne 0 ]
-        then
-            echo "No notes found with the keyword:$keyword"
-        fi
-    }
-
-    edit_note() {
-        echo -n "Enter the note number:"
-        read number
-
-        filename="notes/note${number}.txt"
-
-        if [ -f "$filename" ]
-        then
-            nano "$filename"
-        else
-            echo "File does not exist"
-        fi
-    }
-
-    delete_note() {
-        echo -n "Enter the note number:"
-        read number
-
-        filename="notes/note${number}.txt"
-
-        if [ -f "$filename" ]
-        then
-            rm "$filename"
-        else
-            echo "File does not exist"
-        fi
-    }
-
-
-    if [ "$choice" -eq 1 ];
-    then
-        create_note
-    elif [ "$choice" -eq 2 ];
-    then    
-        search_note
-    elif [ "$choice" -eq 3 ];
-    then
-        edit_note
-    elif [ "$choice" -eq 4 ];
-    then
-        delete_note
-    elif [ "$choice" -eq 5 ];
-    then
-        exit 0
+    if [[ -z "${lastnumber:-}" ]]; then
+        echo 1
     else
-        echo "Wrong Choice"
+        echo $((lastnumber+1))
     fi
+}
+
+#creating note
+create_note() {
+    ensure_dir
+
+    local number
+    number=$(next_note_number)
+
+    local file="$NOTES_DIR/note${number}.txt"
+    "$EDITOR" "$file"
+}
+
+search_note() {
+    ensure_dir
+    read -rp "ENTER THE KEYWORD TO SEARCH : " keyword
+
+    if ! grep -ni -- "$keyword" "$NOTES_DIR"/note*.txt 2>/dev/null; then
+        echo "NO NOTES FOUND WITH THE KEYWORD : $keyword"
+    fi
+
+}
+
+edit_note() {
+    ensure_dir
+
+    read -rp "ENTER THE NOTE NUMBER TO BE EDITED :" number
+
+    local file="$NOTES_DIR/note${number}.txt"
+    if [[ -f $file ]]; then
+        "$EDITOR" "$file"
+    else
+        echo "NOTE DOES NOT EXIST!!!"
+    fi
+}
+
+delete_note() {
+    ensure_dir
+
+    read -rp "ENTER THE NOTE NUMBER TO BE DELETED :" number
+    local file="$NOTES_DIR/note${number}.txt"
+    if [[ -f $file ]]; then
+        rm -- $file
+        echo "NOTE $number SUCCESSFULLY DELETED"
+    else
+        echo "NOTE DOES NOT EXIST!!!"
+    fi
+}
+
+while true; do
+    echo
+    echo "****NOTES CLI****"
+    echo "1. CREATE NEW NOTE"
+    echo "2. SEARCH NOTE"
+    echo "3. EDIT NOTE"
+    echo "4. DELETE NOTE"
+    echo "5. LIST NOTES"
+    echo "6. EXIT"
+
+    read -rp "ENTER YOUR CHOICES:" choice
+
+    case "$choice" in
+        1) create_note ;;
+        2) search_note ;;
+        3) edit_note ;;
+        4) delete_note ;;
+        5) ls "$NOTES_DIR" ;;
+        6) exit 0 ;;
+        *) echo "Invalid Choice" ;;
+    esac
 done

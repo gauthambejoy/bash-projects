@@ -22,17 +22,19 @@ backup() {
     mkdir -p "$destination"
 
     #4. Copy source to destination
-    cp -r "$source" "$destination" 2>/dev/null
-    if [[ $? -ne 0 ]]; then
+    rsync -a "$source" "$destination" 2>/dev/null
+    status=$?
+
+    if [[ $status -eq 0 ]]; then
+        echo "$(date): SUCCESS - Successfully Backed up $source to $destination" >> "$LOG_FILE"
+        return 0
+    elif [[ $status -eq 23 ]]; then
+        echo "$(date): WARNING - Backup completed with permission issues for $source" >> "$LOG_FILE"
+        return 0
+    else
         echo "$(date): ERROR - Backup failed for $source" >> "$LOG_FILE"
         return 2
     fi
-
-    #5. Log success
-    echo "$(date): SUCCESS - Successfully Backed up $source to $destination" >> "$LOG_FILE"
-    return 0
-
-
 }
 
 backup $1 $2
